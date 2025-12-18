@@ -34,6 +34,14 @@ function simulateBudget(
   });
 }
 
+function withCors(response: Response): Response {
+  const headers = new Headers(response.headers);
+  headers.set("Access-Control-Allow-Origin", "*");
+  headers.set("Access-Control-Allow-Headers", "Content-Type");
+  headers.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  return new Response(response.body, { status: response.status, headers });
+}
+
 
 const BUDGET_KEY = "budget";
 export class MyDurableObject extends DurableObject<Env> {
@@ -199,50 +207,64 @@ export default {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
 		const url = new URL(request.url);
 
-		// Health check endpoint
-		if (url.pathname === "/api/health") {
-			return new Response(
-				JSON.stringify({ ok: true }),
-				{ headers: { "Content-Type": "application/json" } }
-			);
+		// CORS preflight for API routes
+		if (request.method === "OPTIONS" && url.pathname.startsWith("/api/")) {
+  			return withCors(
+    			new Response(null, { status: 204 })
+  			);
 		}
 
-		const stub = env.MY_DURABLE_OBJECT.getByName("foo");
+		// Health check endpoint
+		if (url.pathname === "/api/health") {
+			return withCors( 
+				new Response(JSON.stringify({ ok: true }),
+				{ headers: { "Content-Type": "application/json" } }
+			)
+		);
+		}
 
+		
 		if (url.pathname === "/api/budget") {
 			// Forward budget requests to Durable Object
-			const internalUrl = new URL("http://do.internal/budget");
-			return stub.fetch(
+			const stub = env.MY_DURABLE_OBJECT.getByName("foo");
+  			const internalUrl = new URL("http://do.internal/budget");
+  			const doResp = await stub.fetch(
 				new Request(internalUrl.toString(), {
 					method: request.method,
 					headers: request.headers,
 					body: request.body
 				})
 			);
+			return withCors(doResp);
 		}
 		
 
 		// Chat endpoint → forwards to Durable Object
-		if (url.pathname === "/api/chat" && request.method === "POST") {
+		if (url.pathname === "/api/chat" && request.method.toUpperCase() === "POST") {
+  			const stub = env.MY_DURABLE_OBJECT.getByName("foo");
 			const internalUrl = new URL("http://do.internal/chat");
-			return stub.fetch(
-				new Request(internalUrl.toString(), {
-					method: "POST",
-					headers: request.headers,
-					body: request.body,
-				})
-			);
+  			const doResp = await stub.fetch(
+    			new Request(internalUrl.toString(), {
+      				method: "POST",
+      				headers: request.headers,
+      				body: request.body,
+    			})
+  			);
+  			return withCors(doResp);
 		}
+
 		// /api/simulate → forwards to DO /simulate
 		if (url.pathname === "/api/simulate" && request.method === "POST") {
-			const internalUrl = new URL("http://do.internal/simulate");
-			return stub.fetch(
+			const stub = env.MY_DURABLE_OBJECT.getByName("foo");
+  			const internalUrl = new URL("http://do.internal/simulate");
+  			const doResp = await stub.fetch(
 				new Request(internalUrl.toString(), {
 					method: "POST",
 					headers: request.headers,
 					body: request.body,
 				})
 			);
+			return withCors(doResp);
 		}
 
 		return new Response("Not Found", { status: 404 });

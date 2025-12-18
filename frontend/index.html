@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Greek Budget Copilot</title>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; }
+      #messages { border: 1px solid #ccc; border-radius: 8px; padding: 1rem; height: 300px; overflow-y: auto; margin-bottom: 1rem; }
+      .msg { margin-bottom: 0.5rem; }
+      .user { font-weight: 600; }
+      .assistant { color: #333; }
+      #input-row { display: flex; gap: 0.5rem; }
+      #message-input { flex: 1; padding: 0.5rem; border-radius: 4px; border: 1px solid #ccc; }
+      button { padding: 0.5rem 1rem; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff; cursor: pointer; }
+      button:disabled { opacity: 0.6; cursor: default; }
+    </style>
+  </head>
+  <body>
+    <h1>Greek Budget Copilot</h1>
+    <p>Start by telling me your members, dues per member, and total annual expenses. Then ask “what if” questions.</p>
+
+    <div id="messages"></div>
+
+    <div id="input-row">
+      <input id="message-input" type="text" placeholder="Ask something like 'What if we raise dues by $200?'" />
+      <button id="send-btn">Send</button>
+    </div>
+
+    <script>
+      const API_BASE = "https://swe-project.jcroney.workers.dev";
+
+      const messagesEl = document.getElementById("messages");
+      const inputEl = document.getElementById("message-input");
+      const sendBtn = document.getElementById("send-btn");
+
+      function appendMessage(role, text) {
+        const div = document.createElement("div");
+        div.className = "msg";
+        const who = document.createElement("span");
+        who.className = role === "user" ? "user" : "assistant";
+        who.textContent = role === "user" ? "You: " : "Copilot: ";
+        const content = document.createElement("span");
+        content.textContent = text;
+        div.appendChild(who);
+        div.appendChild(content);
+        messagesEl.appendChild(div);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      async function sendMessage() {
+        const text = inputEl.value.trim();
+        if (!text) return;
+        appendMessage("user", text);
+        inputEl.value = "";
+        inputEl.focus();
+        sendBtn.disabled = true;
+
+        try {
+          const res = await fetch(`${API_BASE}/api/chat`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: text })
+          });
+
+          if (!res.ok) {
+            appendMessage("assistant", "Error: " + res.status);
+          } else {
+            const data = await res.json();
+            appendMessage("assistant", data.reply || "(no reply)");
+          }
+        } catch (err) {
+          appendMessage("assistant", "Network error: " + err.message);
+        } finally {
+          sendBtn.disabled = false;
+        }
+      }
+
+      sendBtn.addEventListener("click", sendMessage);
+      inputEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") sendMessage();
+      });
+
+      appendMessage("assistant", "Hi! Tell me your members, dues per member, and total expenses, and I'll help you reason about your budget.");
+    </script>
+  </body>
+</html>
