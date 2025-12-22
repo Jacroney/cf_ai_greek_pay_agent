@@ -18,6 +18,14 @@
   <body>
     <h1>Greek Budget Copilot</h1>
     <p>Start by telling me your members, dues per member, and total annual expenses. Then ask “what if” questions.</p>
+    <h2>Set Budget</h2>
+    <div id="budget-setup">
+        <input id="members-input" type="number" placeholder="Members" />
+        <input id="dues-input" type="number" placeholder="Dues per member" />
+        <input id="expenses-input" type="number" placeholder="Total expenses" />
+        <button id="save-budget-btn">Save Budget</button>
+    </div>
+    <pre id="budget-summary"></pre>
 
     <div id="messages"></div>
 
@@ -28,10 +36,49 @@
 
     <script>
       const API_BASE = "https://swe-project.jcroney.workers.dev";
-
+    
+      const membersInput = document.getElementById("members-input");
+      const duesInput = document.getElementById("dues-input");
+      const expensesInput = document.getElementById("expenses-input");
+      const saveBudgetBtn = document.getElementById("save-budget-btn");
+      const budgetSummary = document.getElementById("budget-summary");
       const messagesEl = document.getElementById("messages");
       const inputEl = document.getElementById("message-input");
       const sendBtn = document.getElementById("send-btn");
+
+    async function saveBudget() {
+        const members = Number(membersInput.value);
+        const duesPerMember = Number(duesInput.value);
+        const expenses = Number(expensesInput.value);
+
+    if (!members || !duesPerMember || !expenses) {
+        budgetSummary.textContent = "Please fill all budget fields.";
+        return;
+    }
+
+    const res = await fetch(`${API_BASE}/api/budget`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ members, duesPerMember, expenses }),
+    });
+
+    if (!res.ok) {
+        budgetSummary.textContent = "Error saving budget: " + res.status;
+        return;
+    }
+
+    const data = await res.json();
+    budgetSummary.textContent = `Budget saved:
+    Members: ${data.summary.members}
+    Dues per member: ${data.summary.duesPerMember}
+    Revenue: ${data.summary.totalRevenue}
+    Expenses: ${data.summary.expenses}
+    Balance: ${data.summary.balance}`;
+    }
+
+    saveBudgetBtn.addEventListener("click", saveBudget);
+
+
 
       function appendMessage(role, text) {
         const div = document.createElement("div");

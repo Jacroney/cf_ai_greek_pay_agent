@@ -33,12 +33,17 @@ function simulateBudget(
     expenses: changes.expenses ?? budget.expenses,
   });
 }
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+};
 
 function withCors(response: Response): Response {
   const headers = new Headers(response.headers);
-  headers.set("Access-Control-Allow-Origin", "*");
-  headers.set("Access-Control-Allow-Headers", "Content-Type");
-  headers.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  for (const [key, value] of Object.entries(CORS_HEADERS)) {
+    headers.set(key, value);
+  }
   return new Response(response.body, { status: response.status, headers });
 }
 
@@ -209,9 +214,10 @@ export default {
 
 		// CORS preflight for API routes
 		if (request.method === "OPTIONS" && url.pathname.startsWith("/api/")) {
-  			return withCors(
-    			new Response(null, { status: 204 })
-  			);
+  			return new Response(null, {
+        		status: 204,
+        		headers: CORS_HEADERS,
+      });
 		}
 
 		// Health check endpoint
@@ -222,11 +228,11 @@ export default {
 			)
 		);
 		}
+		const stub = env.MY_DURABLE_OBJECT.getByName("foo");
 
 		
 		if (url.pathname === "/api/budget") {
 			// Forward budget requests to Durable Object
-			const stub = env.MY_DURABLE_OBJECT.getByName("foo");
   			const internalUrl = new URL("http://do.internal/budget");
   			const doResp = await stub.fetch(
 				new Request(internalUrl.toString(), {
@@ -241,7 +247,6 @@ export default {
 
 		// Chat endpoint → forwards to Durable Object
 		if (url.pathname === "/api/chat" && request.method.toUpperCase() === "POST") {
-  			const stub = env.MY_DURABLE_OBJECT.getByName("foo");
 			const internalUrl = new URL("http://do.internal/chat");
   			const doResp = await stub.fetch(
     			new Request(internalUrl.toString(), {
@@ -255,7 +260,6 @@ export default {
 
 		// /api/simulate → forwards to DO /simulate
 		if (url.pathname === "/api/simulate" && request.method === "POST") {
-			const stub = env.MY_DURABLE_OBJECT.getByName("foo");
   			const internalUrl = new URL("http://do.internal/simulate");
   			const doResp = await stub.fetch(
 				new Request(internalUrl.toString(), {
@@ -266,7 +270,8 @@ export default {
 			);
 			return withCors(doResp);
 		}
-
-		return new Response("Not Found", { status: 404 });
+		return withCors(
+			new Response("Not Found", { status: 404 })
+		);
 	},
 } satisfies ExportedHandler<Env>;
