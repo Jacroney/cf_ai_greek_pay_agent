@@ -13,13 +13,22 @@
 				"MyDurableObject"
 			],
 			"tag": "v1"
+		},
+		{
+			"renamed_classes": [
+				{
+					"from": "MyDurableObject",
+					"to": "BudgetManager"
+				}
+			],
+			"tag": "v2"
 		}
 	],
 	"durable_objects": {
 		"bindings": [
 			{
-				"class_name": "MyDurableObject",
-				"name": "MY_DURABLE_OBJECT"
+				"class_name": "BudgetManager",
+				"name": "BUDGET_MANAGER"
 			}
 		]
 	},

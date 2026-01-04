@@ -49,7 +49,7 @@ function withCors(response: Response): Response {
 
 
 const BUDGET_KEY = "budget";
-export class MyDurableObject extends DurableObject<Env> {
+export class BudgetManager extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
   }
@@ -229,7 +229,7 @@ export default {
 			)
 		);
 		}
-		const stub = env.MY_DURABLE_OBJECT.getByName("foo");
+		const stub = env.BUDGET_MANAGER.getByName("chapter-budget");
 
 		
 		if (url.pathname === "/api/budget") {

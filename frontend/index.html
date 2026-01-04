@@ -17,13 +17,14 @@
   </head>
   <body>
     <h1>Greek Budget Copilot</h1>
-    <p>Start by telling me your members, dues per member, and total annual expenses. Then ask “what if” questions.</p>
+    <p>Set your budget above, then ask “what if” questions in chat.</p>
+
     <h2>Set Budget</h2>
     <div id="budget-setup">
-        <input id="members-input" type="number" placeholder="Members" />
-        <input id="dues-input" type="number" placeholder="Dues per member" />
-        <input id="expenses-input" type="number" placeholder="Total expenses" />
-        <button id="save-budget-btn">Save Budget</button>
+      <input id="members-input" type="number" placeholder="Members" />
+      <input id="dues-input" type="number" placeholder="Dues per member" />
+      <input id="expenses-input" type="number" placeholder="Total expenses" />
+      <button id="save-budget-btn">Save Budget</button>
     </div>
     <pre id="budget-summary"></pre>
 
@@ -36,7 +37,7 @@
 
     <script>
       const API_BASE = "https://swe-project.jcroney.workers.dev";
-    
+
       const membersInput = document.getElementById("members-input");
       const duesInput = document.getElementById("dues-input");
       const expensesInput = document.getElementById("expenses-input");
@@ -46,48 +47,73 @@
       const inputEl = document.getElementById("message-input");
       const sendBtn = document.getElementById("send-btn");
 
-    async function saveBudget() {
+      async function loadBudget() {
+        try {
+          const res = await fetch(`${API_BASE}/api/budget`);
+          if (!res.ok) {
+            budgetSummary.textContent = "Could not load budget.";
+            return;
+          }
+
+          const data = await res.json();
+
+          if (!data.summary) {
+            budgetSummary.textContent = "No budget set yet. Enter numbers above and click Save Budget.";
+            return;
+          }
+
+          budgetSummary.textContent = `Current budget:
+Members: ${data.summary.members}
+Dues per member: ${data.summary.duesPerMember}
+Revenue: ${data.summary.totalRevenue}
+Expenses: ${data.summary.expenses}
+Balance: ${data.summary.balance}`;
+
+          // enable chat once budget exists
+          sendBtn.disabled = false;
+        } catch (e) {
+          budgetSummary.textContent = "Could not load budget.";
+        }
+      }
+
+      async function saveBudget() {
         const members = Number(membersInput.value);
         const duesPerMember = Number(duesInput.value);
         const expenses = Number(expensesInput.value);
 
-    if (!members || !duesPerMember || !expenses) {
-        budgetSummary.textContent = "Please fill all budget fields.";
-        return;
-    }
+        if (!members || !duesPerMember || !expenses) {
+          budgetSummary.textContent = "Please fill all budget fields.";
+          return;
+        }
 
-    const res = await fetch(`${API_BASE}/api/budget`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ members, duesPerMember, expenses }),
-    });
+        const res = await fetch(`${API_BASE}/api/budget`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ members, duesPerMember, expenses }),
+        });
 
-    if (!res.ok) {
-        budgetSummary.textContent = "Error saving budget: " + res.status;
-        return;
-    }
+        if (!res.ok) {
+          budgetSummary.textContent = "Error saving budget: " + res.status;
+          return;
+        }
 
-    const data = await res.json();
-    budgetSummary.textContent = `Budget saved:
-    Members: ${data.summary.members}
-    Dues per member: ${data.summary.duesPerMember}
-    Revenue: ${data.summary.totalRevenue}
-    Expenses: ${data.summary.expenses}
-    Balance: ${data.summary.balance}`;
-    }
+        // After saving, reload from the DO so we know it persisted
+        await loadBudget();
+      }
 
-    saveBudgetBtn.addEventListener("click", saveBudget);
-
-
+      saveBudgetBtn.addEventListener("click", saveBudget);
 
       function appendMessage(role, text) {
         const div = document.createElement("div");
         div.className = "msg";
+
         const who = document.createElement("span");
         who.className = role === "user" ? "user" : "assistant";
         who.textContent = role === "user" ? "You: " : "Copilot: ";
+
         const content = document.createElement("span");
         content.textContent = text;
+
         div.appendChild(who);
         div.appendChild(content);
         messagesEl.appendChild(div);
@@ -97,6 +123,7 @@
       async function sendMessage() {
         const text = inputEl.value.trim();
         if (!text) return;
+
         appendMessage("user", text);
         inputEl.value = "";
         inputEl.focus();
@@ -118,6 +145,8 @@
         } catch (err) {
           appendMessage("assistant", "Network error: " + err.message);
         } finally {
+          // If budget exists, keep enabled; otherwise stay disabled
+          // (loadBudget() enables it only when summary exists)
           sendBtn.disabled = false;
         }
       }
@@ -127,7 +156,11 @@
         if (e.key === "Enter") sendMessage();
       });
 
-      appendMessage("assistant", "Hi! Tell me your members, dues per member, and total expenses, and I'll help you reason about your budget.");
+      // Start disabled until we load budget
+      sendBtn.disabled = true;
+      loadBudget();
+
+      appendMessage("assistant", "Hi! Set your budget above, then ask me questions like 'What if we drop dues to $200?'");
     </script>
   </body>
 </html>
